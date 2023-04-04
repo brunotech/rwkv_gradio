@@ -40,10 +40,7 @@ def to_md(text):
 
 def get_model():
     model = None
-    model = RWKV(
-        **config
-    )
-    return model
+    return RWKV(**config)
 
 
 model = None
@@ -61,7 +58,7 @@ def infer(
 ):
     global model
 
-    if model == None:
+    if model is None:
         gc.collect()
         if (DEVICE == "cuda"):
             torch.cuda.empty_cache()
@@ -137,7 +134,7 @@ def chat(
 
     intro = ""
 
-    if model == None:
+    if model is None:
         gc.collect()
         if (DEVICE == "cuda"):
             torch.cuda.empty_cache()
@@ -167,15 +164,14 @@ def chat(
         model.resetState()
         history = [[], model.emptyState]
         print("reset chat state")
-    else:
-        if (history[0][0][0].split(':')[0] != username):
-            model.resetState()
-            history = [[], model.emptyState]
-            print("username changed, reset state")
-        else:
-            model.setState(history[1])
-            intro = ""
+    elif history[0][0][0].split(':')[0] == username:
+        model.setState(history[1])
+        intro = ""
 
+    else:
+        model.resetState()
+        history = [[], model.emptyState]
+        print("username changed, reset state")
     max_new_tokens = int(max_new_tokens)
     temperature = float(temperature)
     top_p = float(top_p)
@@ -188,18 +184,23 @@ def chat(
 
     temperature = max(0.05, temperature)
 
-    prompt = f"{username}: " + prompt + "\n"
+    prompt = f"{username}: {prompt}" + "\n"
     print(f"CHAT ({datetime.now()}):\n-------\n{prompt}")
     print(f"OUTPUT ({datetime.now()}):\n-------\n")
     # Load prompt
 
     model.loadContext(newctx=intro+prompt)
 
-    out = model.forward(number=max_new_tokens, stopStrings=[
-                        "<|endoftext|>", username+":"], temp=temperature, top_p_usual=top_p, end_adj=end_adj)
+    out = model.forward(
+        number=max_new_tokens,
+        stopStrings=["<|endoftext|>", f"{username}:"],
+        temp=temperature,
+        top_p_usual=top_p,
+        end_adj=end_adj,
+    )
 
     generated_text = out["output"].lstrip("\n ")
-    generated_text = generated_text.rstrip(username + ":")
+    generated_text = generated_text.rstrip(f"{username}:")
     print(f"{generated_text}")
 
     gc.collect()
